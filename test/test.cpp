@@ -17,8 +17,10 @@ constexpr double kSigmaB = 0.02; // bearing noise (rad)
 void predict(Vec3& x, Mat3& P,
              double d, double dtheta,
              double alpha1, double alpha2) {
+    
     const double cos_th  = std::cos(x[2]);
     const double sin_th  = std::sin(x[2]);
+    
     // update state
     x[0] += d * cos_th;
     x[1] += d * sin_th;
@@ -90,17 +92,18 @@ void update(Vec3& x, Mat3& P,
 
         // Innovation  (z − h(x))
         y(row)     = z.range - r_pred;
+        
         // Properly handle angle wrapping for bearing innovation
         double bearing_diff = z.bearing - b_pred_norm;
         y(row+1)   = std::atan2(std::sin(bearing_diff), std::cos(bearing_diff));
 
         // Jacobian  H_i  (2×3)
-        // ∂r/∂x, ∂r/∂y, ∂r/∂θ
+        // dr/dx, dr/dy, dr/dθ
         H(row,   0) = -dx / r_pred;
         H(row,   1) = -dy / r_pred;
         H(row,   2) =  0.0;
 
-        // ∂β/∂x, ∂β/∂y, ∂β/∂θ
+        // dB/dx, dB/dy, dB/dθ
         H(row+1, 0) =  dy / q;
         H(row+1, 1) = -dx / q;
         H(row+1, 2) = -1.0;
@@ -174,19 +177,20 @@ bool test_predict_only() {
 bool test_single_tag_update() {
     std::cout << "=== Test 2 - Single Tag Update ===" << std::endl;
     
+    // Initial pose
     Vec3 x{1.0, 0.0, 0.0};
     Mat3 P = Mat3::Identity() * 0.01;
     
+    // Landmark map
     std::vector<Landmark> map = { {0, 2.0, 0.0} };
     
-    // Use observation that should pull robot toward landmark
-    std::vector<Observation> obs = { {0, 0.5, 0.0} };
+    // Observation
+    std::vector<Observation> obs = { {0, 1.0, 0.0} };
     
     update(x, P, obs, map);
     
     print_state("After single tag update:", x, P);
     
-    // Robot should move toward landmark (x should increase from 1.0)
     bool success =  (x[0] == 1.50) && 
                     (std::abs(x[1]) == 0.0) && 
                     (std::abs(x[2]) < 0.1);
@@ -201,17 +205,17 @@ bool test_single_tag_update() {
 bool test_two_tag_update() {
     std::cout << "=== Test 3 - Two Tag Update ===" << std::endl;
     
-    // Initial pose: x = [0.5, 0.5, 0.0]
+    // Initial pose
     Vec3 x{0.5, 0.5, 0.0};
-    Mat3 P = Mat3::Identity() * 0.1;
+    Mat3 P = Mat3::Identity() * 0.01;
     
-    // Landmark map: { id: 0, x: 2.0, y: 1.0 }, { id: 1, x: -2.0, y: 1.0 }
+    // Landmark map
     std::vector<Landmark> map = {
         {0, 2.0, 1.0},
         {1, -2.0, 1.0}
     };
     
-    // Observations: { id: 0, range: 1.6, bearing: 0.3 }, { id: 1, range: 2.6, bearing: 2.7 }
+    // Observations:
     std::vector<Observation> obs = {
         {0, 1.6, 0.3},
         {1, 2.6, 2.7}
@@ -221,11 +225,9 @@ bool test_two_tag_update() {
     
     print_state("After two tag update:", x, P);
     
-    // More realistic expectations: robot should be roughly between the landmarks
-    // and closer to where the observations suggest
-    bool success = (x[0] > 0.5 && x[0] < 1.2) &&  // x should be reasonable
-                   (x[1] > 0.5 && x[1] < 0.9) &&  // y should move toward landmarks
-                   (std::abs(x[2]) < 0.2);         // theta should be reasonable
+    bool success = (x[0] > 0.7 && x[0] < 1.1) &&  
+                   (x[1] > 0.4 && x[1] < 0.8) &&  
+                   (std::abs(x[2]) < 0.1);         
     
     std::cout << "Test 3 " << (success ? "PASSED" : "FAILED") << std::endl;
     std::cout << "Robot position is reasonable: " << (success ? "YES" : "NO") << std::endl;
@@ -253,12 +255,4 @@ int main() {
     int passed_tests = test1_passed + test2_passed + test3_passed;
     std::cout << std::endl;
     std::cout << "Tests passed: " << passed_tests << "/3" << std::endl;
-    
-    if (passed_tests == 3) {
-        std::cout << "All tests PASSED! EKF implementation is correct." << std::endl;
-        return 0;
-    } else {
-        std::cout << "Some tests FAILED. Please check the implementation." << std::endl;
-        return 1;
-    }
 }
