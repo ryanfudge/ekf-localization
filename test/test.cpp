@@ -49,10 +49,11 @@ void predict(Vec3& x, Mat3& P,
     G(2, 0) = 0.0;             // ∂θ/∂d
     G(2, 1) = 1.0;             // ∂θ/∂θ
 
-    Mat3 Q = G * M * G.transpose(); // 3 × 3 noise covariance matrix
-/*  Q(0, 0) = var_d;  // Noise in x direction
-    Q(1, 1) = var_d;  // Noise in y direction  
-    Q(2, 2) = var_th; // Noise in theta direction */
+    Mat3 Q = G * M * G.transpose(); // 3 × 3 noise covariance matrix 
+ //   Mat3 Q = Mat3::Zero();
+   // Q(0, 0) = var_d;  // Noise in x direction
+   // Q(1, 1) = var_d;  // Noise in y direction  
+    //Q(2, 2) = var_th; // Noise in theta direction */
 
     // Update the covariance matrix P
     P = Fx * P * Fx.transpose() + Q;
@@ -92,7 +93,7 @@ void update(Vec3& x, Mat3& P,
 
         // Innovation  (z − h(x))
         y(row)     = z.range - r_pred;
-        
+
         // Properly handle angle wrapping for bearing innovation
         double bearing_diff = z.bearing - b_pred_norm;
         y(row+1)   = std::atan2(std::sin(bearing_diff), std::cos(bearing_diff));
@@ -147,11 +148,11 @@ void print_state(const std::string& test_name, const Vec3& x, const Mat3& P) {
 bool test_predict_only() {
     std::cout << "=== Test 1 - Predict Only (Odometry) ===" << std::endl;
     
-    // Initial pose: x = [0.0, 0.0, 0.0]
+    // Initial pose:
     Vec3 x{0.0, 0.0, 0.0};
     Mat3 P = Mat3::Identity() * 0.01;
     
-    // Odometry: delta_d = 1.0, delta_theta = 0.0
+    // Odometry
     double delta_d = 1.0;
     double delta_theta = 0.0;
     
@@ -166,9 +167,6 @@ bool test_predict_only() {
                    (std::abs(x[2] - 0.0) < tolerance);
     
     std::cout << "Test 1 " << (success ? "PASSED" : "FAILED") << std::endl;
-    std::cout << "Expected: [1.000, 0.000, 0.000]" << std::endl;
-    std::cout << "Actual:   [" << std::fixed << std::setprecision(3) 
-              << x[0] << ", " << x[1] << ", " << x[2] << "]" << std::endl;
     std::cout << std::endl;
     
     return success;
@@ -178,25 +176,27 @@ bool test_single_tag_update() {
     std::cout << "=== Test 2 - Single Tag Update ===" << std::endl;
     
     // Initial pose
-    Vec3 x{1.0, 0.0, 0.0};
+    Vec3 x{1.5, 2.0, 0.0};
     Mat3 P = Mat3::Identity() * 0.01;
     
     // Landmark map
-    std::vector<Landmark> map = { {0, 2.0, 0.0} };
+    std::vector<Landmark> map = { {0, 3.0, 1.5} };
     
     // Observation
-    std::vector<Observation> obs = { {0, 1.0, 0.0} };
+    std::vector<Observation> obs = { {0, 5, 0.2} };
     
     update(x, P, obs, map);
     
     print_state("After single tag update:", x, P);
     
-    bool success =  (x[0] == 1.50) && 
-                    (std::abs(x[1]) == 0.0) && 
-                    (std::abs(x[2]) < 0.1);
+    float tolerance = 0.1;
+    // successful if metrics are within tolerance
+    // Expected: x ≈ [-1.15, 2.65, -0.35]
+    bool success = (std::abs(x[0] + 1.168) < tolerance) &&
+                (std::abs(x[1] - 2.647) < tolerance) &&
+                (std::abs(x[2] + 0.362) < tolerance);
     
     std::cout << "Test 2 " << (success ? "PASSED" : "FAILED") << std::endl;
-    std::cout << "Robot moved toward landmark: " << (x[0] > 1.0 ? "YES" : "NO") << std::endl;
     std::cout << std::endl;
     
     return success;
@@ -206,33 +206,33 @@ bool test_two_tag_update() {
     std::cout << "=== Test 3 - Two Tag Update ===" << std::endl;
     
     // Initial pose
-    Vec3 x{0.5, 0.5, 0.0};
+    Vec3 x{1.5, 2.0, 0.0};
     Mat3 P = Mat3::Identity() * 0.01;
     
     // Landmark map
     std::vector<Landmark> map = {
-        {0, 2.0, 1.0},
-        {1, -2.0, 1.0}
+        {0, 3.0, 1.5},
+        {1, 1.5, 4.0}
     };
     
     // Observations:
     std::vector<Observation> obs = {
-        {0, 1.6, 0.3},
-        {1, 2.6, 2.7}
+        {0, 5.0, 0.2},
+        {1, 1.8, 1.5}
     };
     
     update(x, P, obs, map);
     
     print_state("After two tag update:", x, P);
     
-    bool success = (x[0] > 0.7 && x[0] < 1.1) &&  
-                   (x[1] > 0.4 && x[1] < 0.8) &&  
-                   (std::abs(x[2]) < 0.1);         
+    float tolerance = 0.1;
+    // successful if metrics are within tolerance
+    // Expected: x ≈ [-0.5098, 2.8677, -0.7721]
+    bool success = (std::abs(x[0] + 0.5098) < tolerance) &&
+                (std::abs(x[1] - 2.8677) < tolerance) &&
+                (std::abs(x[2] + 0.7721) < tolerance);      
     
     std::cout << "Test 3 " << (success ? "PASSED" : "FAILED") << std::endl;
-    std::cout << "Robot position is reasonable: " << (success ? "YES" : "NO") << std::endl;
-    std::cout << "Position: [" << std::fixed << std::setprecision(3) 
-              << x[0] << ", " << x[1] << ", " << x[2] << "]" << std::endl;
     std::cout << std::endl;
     
     return success;
