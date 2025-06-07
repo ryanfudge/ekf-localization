@@ -1,6 +1,6 @@
 # EKF Localization
 
-A C++ implementation of Extended Kalman Filter (EKF) for 2D robot localization using landmark observations.
+A C++ implementation of Extended Kalman Filter (EKF) for 2D differential-drive robot localization using landmark observations.
 
 ## Overview
 
